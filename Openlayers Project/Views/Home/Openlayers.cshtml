@@ -1,0 +1,378 @@
+﻿
+<head>
+    <style>
+        .defaultButton {
+            background-color: cadetblue !important;
+            border-radius: 15px !important;
+            border: 0;
+            display: inline-block !important;
+            color: #ffffff;
+            padding: 3px 7px !important;
+            text-decoration: none !important;
+            text-shadow: 0px 1px 0px #5b8a3c !important;
+        }
+        .ol-control-panel {
+            top: 65px;
+            left: .5em;
+            width:80px;
+        }
+        .ol-mouse-position {
+            background-color: white;
+            margin-top: 520px;
+            margin-right: 32px;
+            min-height: 20px;
+            min-width: 60px;
+        }
+
+        .ol-control-panel {
+            top: 65px;
+            left: .5em;
+        }
+
+        .ol-popup {
+            position: absolute;
+            background-color: white;
+            /*--webkit-filter: drop-shadow(0 1px 4px rgba(0,0,0,0.2));*/
+            filter: drop-shadow(0 1px 4px rgba(0,0,0,0.2));
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #cccccc;
+            bottom: 12px;
+            left: -50px;
+            min-width: 180px;
+        }
+
+        .ol-popup:after, .ol-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .ol-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+
+        .ol-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+        .map {
+            margin-top:1em;
+            width:100%;
+        }
+    </style>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/openlayers/4.6.5/ol-debug.css" rel="stylesheet" />
+    <script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL"></script>
+    <title>Basics</title>
+   
+</head>
+<div style="margin-top:10px;">
+<button id="line_button" class="defaultButton">Draw sample Line</button>
+<button id="hand_drawing" class="defaultButton">Free-hand draw</button>
+    <button id="test">Clear</button>
+
+<select id="type" hidden="hidden">
+    <option value="LineString">LineString</option>
+    <option value="Polygon">Polygon</option>
+    <option value="None" selected="selected">None</option>
+</select>
+
+<div id="map" class="map">
+
+</div>
+</div>
+<div id="popup" title="ROUTECAST" class="ol-popup"><a href="#" id="popup-closer" class="ol-popup-closer"></a><div id="popup-content"></div></div>
+
+
+<script src="~/lib/jquery/dist/jquery.js"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/openlayers/4.6.5/ol-debug.js"></script>
+
+<script>
+
+    $("#test").click(function () {
+        freehanddraw.clear(true);
+    });
+
+    $("#hand_drawing").click(function () {
+        $("#type").fadeToggle(3000,"swing");
+    });
+    var points = [
+        [-74.2166667, 11.25], [-74.232667, 11.2436667], [-74.2418333, 11.2433333], [-74.2563333, 11.3938333], [-71.9675, 12.6541667], [-70.760673, 13.0226667], [-61.7596667, 11.5855],
+        [-60.4223333, 11.5556667], [-48.144, 3.4511667], [-38.7493333, -2.933], [-38.7436667, -3.1475], [-38.7965, -3.475], [-38.806, -3.5201667], [-38.796, -3.5306667]
+    ];
+
+    var content = document.getElementById('popup-content');
+    var center = ol.proj.transform([76.26, 9.93], 'EPSG:4326', 'EPSG:3857'); //initial position of map
+    const view = new ol.View({
+        center: center,
+        zoom: 2
+    });
+
+    function InjectIntoArray(value, index) {
+        points.push(new ol.geom.Point([value.longitude, value.latitude]).getCoordinates());
+    }
+
+     //Adds Open sea map Layer on Map
+    var openSeaMapLayer = new ol.layer.Tile({
+        source: new ol.source.OSM({
+            opaque: false,
+            url: 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png'
+        })
+    });
+
+    drawingSource = new ol.source.Vector({
+        wrapX: false,
+        //features: straitFeatures
+    });
+
+    /**
+     * Function to display all the straits in the database
+     */
+    function showStraits(data) {
+
+        var straitFeatures = data.map(item => { //iterate through array...
+            let longitude = item.longitude,
+                latitude = item.latitude,
+                iconFeature = new ol.Feature({
+                    geometry: new ol.geom.Point(ol.proj.transform([longitude, latitude], 'EPSG:4326',
+                        'EPSG:3857')),
+                    name: item.strait_Name,
+                    type: 'Point',
+                    desc: '<pre>Strait   : ' + item.preferredGazetteerName + '<br>' + 'Latitude : ' + latitude + '<br>Longitude: ' + longitude + '</pre>',
+                    id: 1
+                }),
+                iconStyle = new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 3,
+                        stroke: new ol.style.Stroke({
+                            color: 'blue'
+                        }),
+                        fill: new ol.style.Fill({
+                            color: [57, 228, 193, 0.84]
+                        }),
+                    })
+                });
+
+            iconFeature.setStyle(iconStyle);
+
+            straitSource.addFeature(iconFeature);
+        });
+    }// End of function showStraits()
+   
+    $.ajax({
+        url: '@Url.Action("GetStraitsJson", "Home")',
+        type: "GET",
+        processData: false,
+        traditional: true,
+        contentType: "string",
+        success: function (result) {
+            showStraits(JSON.parse(result));  //draw all points from json by passing them as array
+        },
+        Error: function () {
+            shared.failureDialog("Failed", "Failed getting data");
+
+        }
+    });
+
+    styleFunction = function (feature) { // This function styles the Linestring by adding circle at the waypoints coordinates on linestring for the current uploaded route
+        var geometry = feature.getGeometry();
+
+        var styles = [
+            new ol.style.Style({   //Style for LineString
+                fill: new ol.style.Fill({
+                    color: [180, 0, 0, 0.3]
+                }),
+                stroke: new ol.style.Stroke({
+                    color: [180, 0, 0, 1],
+                    width: 2
+                })
+            })
+        ];
+        //console.log(geometry)
+        geometry.forEachSegment(function (start, end) {
+
+            styles.push(new ol.style.Style({
+                geometry: new ol.geom.Point(end),
+                image: new ol.style.Circle({
+                    radius: 3,
+                    stroke: new ol.style.Stroke({
+                        color: [180, 0, 0, 1]
+                    }),
+                    fill: new ol.style.Fill({
+                        color: [180, 0, 0, 1]
+                    })
+                })
+            })
+            )
+        });
+
+        return styles;
+    };
+
+    //vector layer on map
+    var drawingLayer = new ol.layer.Vector({
+        source: drawingSource,
+        style: styleFunction,
+        id: 'drawingLayer'
+    });
+
+    //raster layer on map
+    OSMBaseLayer = new ol.layer.Tile({
+        source: new ol.source.OSM()
+    });
+
+    /** Create a checkbox to toggle visibility of straits on map 
+     *  You can create different controls for different operations
+     */
+    var strait_cbx = document.createElement('input');
+    strait_cbx.type = "checkbox";
+    strait_cbx.value = "value";
+    strait_cbx.id = "strait_cbx";
+    strait_cbx.className = "checkbox";
+    strait_cbx.checked = true;
+    strait_cbx.addEventListener("click", function () {
+        if ($(this).is(':checked')) {
+            straitsLayer.setVisible(true);
+        }
+        else
+            straitsLayer.setVisible(false);
+    });
+    
+    $("#line_button").click(function () { plotRoute(false, 1); });
+
+    /**
+     * This is a container element which holds input elements which are controls for the map
+     * You can add as many as you want depending upon use.
+     * The element is a div which would act like a panel to add controls on map like toggling visibility of the layers, clearing map so that you can save using interactions
+     */
+    var element = document.createElement('div');
+    element.className = 'ol-control-panel ol-unselectable ol-control';
+    element.innerHTML = "<b>Straits</b>&nbsp;"
+    element.appendChild(strait_cbx);
+    //element.appendChild(button);
+
+    /*A custom control which has container holding input elements etc*/
+    var controlPanel = new ol.control.Control({
+        element: element
+    });
+
+    var straitSource = new ol.source.Vector({ wrapX: false });
+    var straitsLayer = new ol.layer.Vector({
+        source: straitSource
+    });
+
+    var freehanddraw = new ol.source.Vector({ wrapX: false });
+    var freehanddrawLayer = new ol.layer.Vector({
+        source: freehanddraw
+    });
+   
+    //Map
+    map = new ol.Map({
+        layers: [OSMBaseLayer, openSeaMapLayer, drawingLayer, straitsLayer, freehanddrawLayer],
+        target: 'map',
+        view: view,
+        controls: [new ol.control.FullScreen(), new ol.control.Zoom(), controlPanel, new ol.control.MousePosition({
+            coordinateFormat: function (coordinate) {
+            lon = coordinate[0];
+            lat = coordinate[1];
+            lon = lon % 360;
+            if (lon > 180)
+                lon = lon - 360;
+            else if (lon < -180)
+                lon = 360 + lon;
+            modifiedCoordinate = [lon, lat];
+            transformedlocation = ol.coordinate.format(modifiedCoordinate, "Lat: {y}, Lon: {x}", 4);
+            return transformedlocation;
+            },
+            projection: 'EPSG:4326'
+        })]
+    });
+  
+    var typeSelect = document.getElementById('type');
+    var draw; // global so we can remove it later
+    function addInteraction() {
+        var value = typeSelect.value;
+        if (value !== 'None') {
+            draw = new ol.interaction.Draw({
+                source: freehanddraw,
+                type: typeSelect.value,
+                freehand: true,
+                wrapX: false
+            });
+            map.addInteraction(draw);
+        }
+    }
+
+    /**
+     * Handle change event.
+     */
+    typeSelect.onchange = function () {
+        map.removeInteraction(draw);
+        addInteraction();
+    };
+    addInteraction();
+
+    // Popup showing the position the user clicked
+    var container = document.getElementById('popup');
+    var popup = new ol.Overlay({
+        element: container,
+        autoPan: true,
+        autoPanAnimation: {
+            duration: 250
+        }
+    });
+    map.addOverlay(popup);
+
+    /* Add a pointermove handler to the map to render the popup.*/
+    map.on('pointermove', function (evt) {
+        let feature = map.forEachFeatureAtPixel(evt.pixel, function (feat, layer) {
+            return feat;
+        }
+        );
+
+        if (feature && feature.get('type') == 'Point') {
+            let coordinate = evt.coordinate;    //default projection is EPSG:3857 you may want to use ol.proj.transform
+
+            content.innerHTML = feature.get('desc');
+            popup.setPosition(coordinate);
+        }
+        else {
+            popup.setPosition(undefined);
+            
+        }
+    });
+
+    function plotRoute(clearAll, routeType) {
+     
+        linestring_feature = new ol.Feature({
+            wrapX: false,
+            geometry: new ol.geom.LineString(points)
+        });
+        drawingSource.addFeature(linestring_feature);
+        var features = [linestring_feature];
+        if (routeType == 2)
+            linestring_feature.setStyle(lineStyle);
+
+        features.forEach(transform_geometry);
+        points = [];
+    }
+    function transform_geometry(element) {
+        var current_projection = new ol.proj.Projection({ code: "EPSG:4326" });
+        var new_projection = OSMBaseLayer.getSource().getProjection();
+        element.getGeometry().transform(current_projection, new_projection);
+    }
+</script>
+
